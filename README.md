@@ -1,6 +1,6 @@
 # bskycli
 
-bskycli is a .NET Console application for accessing Bluesky/ATProtocol, designed as an easy way to automate posting for bots. Written with NativeAOT in mind, it can be built and run independent of the .NET Runtime.
+bskycli is a .NET Console application for accessing Bluesky/ATProtocol through [FishyFlip](https://drasticactions.github.io/FishyFlip), designed as an easy way to automate posting for bots. Written with NativeAOT in mind, it can be built and run independent of the .NET Runtime.
 
 ## ffmpeg
 
