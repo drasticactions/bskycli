@@ -768,7 +768,7 @@ public class AppCommands
         return atProtocol;
     }
 
-    private (int width, int height) GetDimensions(string videoPath)
+    private (int Width, int Height) GetDimensions(string videoPath)
     {
         using var process = new Process();
         process.StartInfo.FileName = "ffprobe";
@@ -856,6 +856,8 @@ public class AppCommands
         {
             return embed;
         }
+
+        cid ??= string.Empty;
 
         var embedRecord = new EmbedRecord(new FishyFlip.Lexicon.Com.Atproto.Repo.StrongRef(atUri!, cid));
 
