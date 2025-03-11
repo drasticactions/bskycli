@@ -7,8 +7,8 @@
     <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
     <PackageVersion Include="FishyFlip" Version="3.4.1" />
     <PackageVersion Include="ConsoleAppFramework" Version="5.4.1"/>
-    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="9.0.2" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="9.0.2" />
     <PackageVersion Include="GitVersion.MSBuild" Version="6.1.0" />
   </ItemGroup>
