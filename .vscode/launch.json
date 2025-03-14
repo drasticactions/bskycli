@@ -2,21 +2,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "oauth-metadata",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build_bskycli",
-            "program": "${workspaceFolder}/src/bskycli/bin/Debug/net9.0/bskycli.dll",
-            "args": [ 
-                "oauth-metadata",
-                "${workspaceFolder}/../oauth-metadata.json",
-                "-v"
-            ],
-            "cwd": "${workspaceFolder}/src/bskycli/bin/Debug/net9.0",
-            "console": "internalConsole",
-            "stopAtEntry": false
-        },
-        {
             "name": "atfile_list",
             "type": "coreclr",
             "request": "launch",
