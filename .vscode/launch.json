@@ -177,12 +177,23 @@
             "stopAtEntry": false
         },
         {
-            "name": "download",
+            "name": "download blob",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build_bskycli",
             "program": "${workspaceFolder}/src/bskycli/bin/Debug/net9.0/bskycli.dll",
-            "args": [ "download", "did:plc:urj4pkche2yvpr5ilj4ykteu", "bafkreif2su5dt27u23q2f4tl5mgmojyibl4rj6lundc27sjvtuhawi732y", "-o", "${workspaceFolder}/artifacts/avatar.jpg" ],
+            "args": [ "download", "blob", "did:plc:urj4pkche2yvpr5ilj4ykteu", "bafkreif2su5dt27u23q2f4tl5mgmojyibl4rj6lundc27sjvtuhawi732y", "-o", "${workspaceFolder}/artifacts/avatar.jpg" ],
+            "cwd": "${workspaceFolder}/src/bskycli/bin/Debug/net9.0",
+            "console": "internalConsole",
+            "stopAtEntry": false
+        },
+        {
+            "name": "download repo",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build_bskycli",
+            "program": "${workspaceFolder}/src/bskycli/bin/Debug/net9.0/bskycli.dll",
+            "args": [ "download", "repo", "did:plc:urj4pkche2yvpr5ilj4ykteu", "-o", "${workspaceFolder}/artifacts/test.repo" ],
             "cwd": "${workspaceFolder}/src/bskycli/bin/Debug/net9.0",
             "console": "internalConsole",
             "stopAtEntry": false

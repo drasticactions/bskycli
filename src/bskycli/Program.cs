@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Security.Cryptography;
 using Bskycli;
 using ConsoleAppFramework;
@@ -505,6 +506,61 @@ public class AppCommands
     }
 
     /// <summary>
+    /// Download a repository from an identifier.
+    /// </summary>
+    /// <param name="identifier">The repo to download from.</param>
+    /// <param name="outputName">-o, The file output name. Defaults to a generated value.</param>
+    /// <param name="instanceUrl">-i, Instance URL.</param>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    /// <param name="cancellationToken">Cancellation Token.</param>
+    /// <returns>Task.</returns>
+    [Command("download repo")]
+    public async Task DownloadRepoAsync([Argument] string identifier, string? outputName = default, string instanceUrl = "https://public.api.bsky.app", bool verbose = false, CancellationToken cancellationToken = default)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+        var atProtocol = this.GenerateProtocol(instanceUrl, consoleLog);
+        if (!ATIdentifier.TryCreate(identifier, out var atUri))
+        {
+            consoleLog.LogError("Invalid Identifier.");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(outputName))
+        {
+            outputName = $"{identifier}.repo";
+        }
+
+        var directory = Path.GetDirectoryName(outputName);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+        else
+        {
+            directory = System.AppContext.BaseDirectory;
+        }
+
+        var outputPath = Path.Combine(directory ?? string.Empty, outputName);
+
+        using var fileStream = File.OpenWrite(outputPath);
+
+        var (result, error) = await atProtocol.DownloadRepoAsync(atUri, fileStream, cancellationToken: cancellationToken);
+        if (error != null)
+        {
+            consoleLog.LogError(error.ToString());
+            return;
+        }
+
+        if (result is null)
+        {
+            consoleLog.LogError("Failed to download repository.");
+            return;
+        }
+
+        consoleLog.Log($"Downloaded repository to {outputName}.");
+    }
+
+    /// <summary>
     /// Download a blob from a repository.
     /// </summary>
     /// <param name="atDid">The repo to download from.</param>
@@ -514,7 +570,7 @@ public class AppCommands
     /// <param name="verbose">-v, Verbose logging.</param>
     /// <param name="cancellationToken">Cancellation Token.</param>
     /// <returns>Task.</returns>
-    [Command("download")]
+    [Command("download blob")]
     public async Task DownloadBlobAsync([Argument] string atDid, [Argument] string cid, string? outputName = default, string instanceUrl = "https://public.api.bsky.app", bool verbose = false, CancellationToken cancellationToken = default)
     {
         var consoleLog = new ConsoleLog(verbose);
