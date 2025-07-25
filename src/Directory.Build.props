@@ -30,16 +30,24 @@
       <InternalsVisibleToSuffix Include=".Tests" />
       <InternalsVisibleToSuffix Include=".DebugApp" />
     </ItemGroup>
+    
+    <!-- Define public key for strong-named assemblies -->
+    <PropertyGroup Condition="'$(SignAssembly)' == 'true'">
+      <PublicKey>00240000048000009400000006020000002400005253413100040000010001001ba1d2c032155fbe2f6dace728caf7393666e3747b42954a7af5283ac1f9c08f355a19f939f83fad9b10531c58e10c8cd1e5e5b2d1644a9e3c2987a51c4a9f82abfa6e99b22fa64d1e9a32d07daed95583ecffc88d4ba44c916d02b652000be3e6ede0aeeaf1da9012e303b3bd8ab5414b3413fd57888dcd0c5e70d71547248a</PublicKey>
+    </PropertyGroup>
+    
     <!-- Handle InternalsVisibleTo -->
     <ItemGroup Condition="'@(InternalsVisibleTo-&gt;Count())' &gt; 0">
       <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
-        <_Parameter1>%(InternalsVisibleTo.Identity)</_Parameter1>
+        <_Parameter1 Condition="'$(SignAssembly)' == 'true'">%(InternalsVisibleTo.Identity), PublicKey=$(PublicKey)</_Parameter1>
+        <_Parameter1 Condition="'$(SignAssembly)' != 'true'">%(InternalsVisibleTo.Identity)</_Parameter1>
       </AssemblyAttribute>
     </ItemGroup>
     <!-- Handle InternalsVisibleToSuffix -->
     <ItemGroup Condition="@(InternalsVisibleToSuffix-&gt;Count()) &gt; 0">
       <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
-        <_Parameter1>$(AssemblyName)%(InternalsVisibleToSuffix.Identity)</_Parameter1>
+        <_Parameter1 Condition="'$(SignAssembly)' == 'true'">$(AssemblyName)%(InternalsVisibleToSuffix.Identity), PublicKey=$(PublicKey)</_Parameter1>
+        <_Parameter1 Condition="'$(SignAssembly)' != 'true'">$(AssemblyName)%(InternalsVisibleToSuffix.Identity)</_Parameter1>
       </AssemblyAttribute>
     </ItemGroup>
   </Target>
