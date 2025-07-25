@@ -20,6 +20,9 @@ bskycli_macos_arm64:
 	dotnet publish $(BSKYCLI_PROJECT) -c $(BUILD_TYPE) -r osx-arm64 -o $(ARTIFACTS_DIR)/osx-arm64
 
 bskycli_macos: bskycli_macos_x64 bskycli_macos_arm64
+	rm -rf $(ARTIFACTS_DIR)/osx-universal
+	mkdir -p $(ARTIFACTS_DIR)/osx-universal
+	lipo -create $(ARTIFACTS_DIR)/osx-x64/bskycli $(ARTIFACTS_DIR)/osx-arm64/bskycli -output $(ARTIFACTS_DIR)/osx-universal/bskycli
 
 clean:
 	rm -rf $(ARTIFACTS_DIR)
