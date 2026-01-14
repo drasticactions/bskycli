@@ -601,6 +601,321 @@ public class AppCommands
         consoleLog.Log($"Downloaded blob to {file.FullName}.");
     }
 
+    /// <summary>
+    /// Validate handle syntax.
+    /// </summary>
+    /// <param name="handle">The handle to validate.</param>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    [Command("syntax handle")]
+    public void ValidateHandleSyntax([Argument] string handle, bool verbose = false)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+        if (ATHandle.TryCreate(handle, out var atHandle))
+        {
+            consoleLog.Log("valid");
+        }
+        else
+        {
+            consoleLog.LogError($"error: handle syntax didn't validate");
+        }
+    }
+
+    /// <summary>
+    /// Validate DID syntax.
+    /// </summary>
+    /// <param name="did">The DID to validate.</param>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    [Command("syntax did")]
+    public void ValidateDidSyntax([Argument] string did, bool verbose = false)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+        if (ATDid.TryCreate(did, out var atDid))
+        {
+            consoleLog.Log("valid");
+        }
+        else
+        {
+            consoleLog.LogError($"error: DID syntax didn't validate");
+        }
+    }
+
+    /// <summary>
+    /// Validate AT-URI syntax.
+    /// </summary>
+    /// <param name="uri">The AT-URI to validate.</param>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    [Command("syntax aturi")]
+    public void ValidateAtUriSyntax([Argument] string uri, bool verbose = false)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+        if (ATUri.TryCreate(uri, out var atUri))
+        {
+            consoleLog.Log("valid");
+        }
+        else
+        {
+            consoleLog.LogError($"error: AT-URI syntax didn't validate");
+        }
+    }
+
+    /// <summary>
+    /// Validate a TID (Timestamp Identifier) syntax.
+    /// </summary>
+    /// <param name="tid">The TID to validate.</param>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    [Command("syntax tid")]
+    public void ValidateTidSyntax([Argument] string tid, bool verbose = false)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+
+        // TIDs are 13 characters of base32-sortable encoding (lowercase letters and digits 2-7)
+        if (tid.Length == 13 && System.Text.RegularExpressions.Regex.IsMatch(tid, "^[a-z2-7]{13}$"))
+        {
+            consoleLog.Log("valid");
+        }
+        else
+        {
+            consoleLog.LogError($"error: TID syntax didn't validate");
+        }
+    }
+
+    /// <summary>
+    /// Fetch a record from the network as JSON.
+    /// </summary>
+    /// <param name="uri">The AT-URI of the record to fetch.</param>
+    /// <param name="instanceUrl">-i, Instance URL.</param>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    /// <param name="cancellationToken">Cancellation Token.</param>
+    /// <returns>Task.</returns>
+    [Command("get")]
+    public async Task GetRecordAsync([Argument] string uri, string instanceUrl = "https://public.api.bsky.app", bool verbose = false, CancellationToken cancellationToken = default)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+        var atProtocol = this.GenerateProtocol(instanceUrl, consoleLog);
+
+        if (!ATUri.TryCreate(uri, out var atUri))
+        {
+            consoleLog.LogError("Invalid AT-URI.");
+            return;
+        }
+
+        // ATUri has both Did and Handle properties - one will be set based on the URI format
+        ATDid? repoDid = atUri!.Did;
+        if (repoDid == null && atUri.Handle != null)
+        {
+            // URI contains a handle, need to resolve it to DID
+            (var resolveResult, var resolveError) = await atProtocol.Identity.ResolveHandleAsync(atUri.Handle, cancellationToken);
+            if (resolveError != null)
+            {
+                consoleLog.LogError(resolveError.ToString());
+                return;
+            }
+
+            repoDid = resolveResult?.Did;
+        }
+
+        if (repoDid == null)
+        {
+            consoleLog.LogError("Could not resolve repository identifier.");
+            return;
+        }
+
+        (var result, var error) = await atProtocol.Repo.GetRecordAsync(repoDid, atUri.Collection!, atUri.Rkey!, cancellationToken: cancellationToken);
+        if (error != null)
+        {
+            consoleLog.LogError(error.ToString());
+            return;
+        }
+
+        if (result?.Value != null)
+        {
+            consoleLog.Log(result.Value.ToJson());
+        }
+        else
+        {
+            consoleLog.LogError("No record found.");
+        }
+    }
+
+    /// <summary>
+    /// List record collection types for an account.
+    /// </summary>
+    /// <param name="identifier">The identifier (handle or DID) of the account.</param>
+    /// <param name="instanceUrl">-i, Instance URL.</param>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    /// <param name="cancellationToken">Cancellation Token.</param>
+    /// <returns>Task.</returns>
+    [Command("list-collections")]
+    public async Task ListCollectionsAsync([Argument] string identifier, string instanceUrl = "https://public.api.bsky.app", bool verbose = false, CancellationToken cancellationToken = default)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+        var atProtocol = this.GenerateProtocol(instanceUrl, consoleLog);
+
+        if (!ATIdentifier.TryCreate(identifier, out var atIdentifier))
+        {
+            consoleLog.LogError("Invalid identifier.");
+            return;
+        }
+
+        (var result, var error) = await atProtocol.Repo.DescribeRepoAsync(atIdentifier!, cancellationToken);
+        if (error != null)
+        {
+            consoleLog.LogError(error.ToString());
+            return;
+        }
+
+        if (result?.Collections != null)
+        {
+            foreach (var collection in result.Collections)
+            {
+                consoleLog.Log(collection);
+            }
+        }
+        else
+        {
+            consoleLog.Log("No collections found.");
+        }
+    }
+
+    /// <summary>
+    /// List blob CIDs for an account.
+    /// </summary>
+    /// <param name="identifier">The identifier (handle or DID) of the account.</param>
+    /// <param name="instanceUrl">-i, Instance URL.</param>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    /// <param name="cancellationToken">Cancellation Token.</param>
+    /// <returns>Task.</returns>
+    [Command("list-blobs")]
+    public async Task ListBlobsAsync([Argument] string identifier, string instanceUrl = "https://public.api.bsky.app", bool verbose = false, CancellationToken cancellationToken = default)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+        var atProtocol = this.GenerateProtocol(instanceUrl, consoleLog);
+
+        if (!ATDid.TryCreate(identifier, out var atDid))
+        {
+            // Try to resolve as handle first
+            if (ATHandle.TryCreate(identifier, out var atHandle))
+            {
+                (var resolveResult, var resolveError) = await atProtocol.Identity.ResolveHandleAsync(atHandle!, cancellationToken);
+                if (resolveError != null)
+                {
+                    consoleLog.LogError(resolveError.ToString());
+                    return;
+                }
+
+                atDid = resolveResult?.Did;
+            }
+            else
+            {
+                consoleLog.LogError("Invalid identifier.");
+                return;
+            }
+        }
+
+        (var result, var error) = await atProtocol.Sync.ListBlobsAsync(atDid!, cancellationToken: cancellationToken);
+        if (error != null)
+        {
+            consoleLog.LogError(error.ToString());
+            return;
+        }
+
+        if (result?.Cids != null)
+        {
+            foreach (var cid in result.Cids)
+            {
+                consoleLog.Log(cid);
+            }
+        }
+        else
+        {
+            consoleLog.Log("No blobs found.");
+        }
+    }
+
+    /// <summary>
+    /// Get repository status information.
+    /// </summary>
+    /// <param name="identifier">The identifier (handle or DID) of the account.</param>
+    /// <param name="instanceUrl">-i, Instance URL.</param>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    /// <param name="cancellationToken">Cancellation Token.</param>
+    /// <returns>Task.</returns>
+    [Command("repo-status")]
+    public async Task GetRepoStatusAsync([Argument] string identifier, string instanceUrl = "https://public.api.bsky.app", bool verbose = false, CancellationToken cancellationToken = default)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+        var atProtocol = this.GenerateProtocol(instanceUrl, consoleLog);
+
+        if (!ATDid.TryCreate(identifier, out var atDid))
+        {
+            // Try to resolve as handle first
+            if (ATHandle.TryCreate(identifier, out var atHandle))
+            {
+                (var resolveResult, var resolveError) = await atProtocol.Identity.ResolveHandleAsync(atHandle!, cancellationToken);
+                if (resolveError != null)
+                {
+                    consoleLog.LogError(resolveError.ToString());
+                    return;
+                }
+
+                atDid = resolveResult?.Did;
+            }
+            else
+            {
+                consoleLog.LogError("Invalid identifier.");
+                return;
+            }
+        }
+
+        (var latestCommit, var commitError) = await atProtocol.Sync.GetLatestCommitAsync(atDid!, cancellationToken);
+        if (commitError != null)
+        {
+            consoleLog.LogError(commitError.ToString());
+            return;
+        }
+
+        if (latestCommit != null)
+        {
+            consoleLog.Log($"DID: {atDid}");
+            consoleLog.Log($"CID: {latestCommit.Cid}");
+            consoleLog.Log($"Rev: {latestCommit.Rev}");
+        }
+        else
+        {
+            consoleLog.LogError("Could not retrieve repo status.");
+        }
+    }
+
+    /// <summary>
+    /// Describe the server/PDS.
+    /// </summary>
+    /// <param name="instanceUrl">-i, Instance URL.</param>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    /// <param name="cancellationToken">Cancellation Token.</param>
+    /// <returns>Task.</returns>
+    [Command("describe-server")]
+    public async Task DescribeServerAsync(string instanceUrl = "https://public.api.bsky.app", bool verbose = false, CancellationToken cancellationToken = default)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+        var atProtocol = this.GenerateProtocol(instanceUrl, consoleLog);
+
+        (var result, var error) = await atProtocol.Server.DescribeServerAsync(cancellationToken);
+        if (error != null)
+        {
+            consoleLog.LogError(error.ToString());
+            return;
+        }
+
+        if (result != null)
+        {
+            consoleLog.Log(result.ToJson());
+        }
+        else
+        {
+            consoleLog.LogError("Could not describe server.");
+        }
+    }
+
     private async Task<bool> AuthenticateWithAppPasswordAsync(string username, string password, ATProtocol atProtocol, ConsoleLog consoleLog)
     {
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
