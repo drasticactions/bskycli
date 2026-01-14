@@ -18,12 +18,12 @@ jobs:
         - name: Setup .NET Core
           uses: actions/setup-dotnet@v4
           with:
-            dotnet-version: 9.x
+            dotnet-version: 10.x
 
         - name: Install GitVersion
           uses: gittools/actions/gitversion/setup@v3.0.3
           with:
-            versionSpec: '6.0.5'
+            versionSpec: '6.5.1'
 
         - name: Run make linux-x64
           run: make bskycli_linux
@@ -48,12 +48,12 @@ jobs:
         - name: Setup .NET Core
           uses: actions/setup-dotnet@v4
           with:
-            dotnet-version: 9.x
+            dotnet-version: 10.x
         
         - name: Install GitVersion
           uses: gittools/actions/gitversion/setup@v3.0.3
           with:
-            versionSpec: '6.0.5'
+            versionSpec: '6.5.1'
 
         - name: Run make osx
           run: make bskycli_macos
@@ -78,12 +78,12 @@ jobs:
           - name: Setup .NET Core
             uses: actions/setup-dotnet@v4
             with:
-              dotnet-version: 9.x
+              dotnet-version: 10.x
 
           - name: Install GitVersion
             uses: gittools/actions/gitversion/setup@v3.0.3
             with:
-              versionSpec: '6.0.5'
+              versionSpec: '6.5.1'
 
           - name: Run powershell script
             run: |
