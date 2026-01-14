@@ -5,7 +5,7 @@
     <Company>Drastic Actions</Company>
     <Copyright>Copyright (C) Drastic Actions</Copyright>
     <NoWarn>$(NoWarn);SA1208;SA0001;NU5104</NoWarn>
-    <GitVersionTargetFramework>net8.0</GitVersionTargetFramework>
+    <GitVersionTargetFramework>net10.0</GitVersionTargetFramework>
   </PropertyGroup>
 
   <ItemGroup Condition=" ('$(IsPackable)' == 'true') or ('$(PackAsTool)' == 'true') ">
