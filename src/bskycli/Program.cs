@@ -6,9 +6,12 @@ using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Bskycli;
 using ConsoleAppFramework;
 using FishyFlip;
+using FishyFlip.Events;
 using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.App.Bsky.Embed;
 using FishyFlip.Lexicon.Chat.Bsky.Convo;
@@ -32,8 +35,6 @@ public class AppCommands
     /// Create a new post with a video.
     /// </summary>
     /// <param name="videoPath">Path to video.</param>
-    /// <param name="username">-u, Username.</param>
-    /// <param name="password">-p, Password.</param>
     /// <param name="embedRecord">-r, The record to embed in the post.</param>
     /// <param name="embedRecordCid">-c, The CID of the record to embed in the post. Required if embedding record.</param>
     /// <param name="alt">-a, The alt text for the video.</param>
@@ -41,12 +42,11 @@ public class AppCommands
     /// <param name="vttFileLanaguages">-vttl, The languages for the VTT files.</param>
     /// <param name="post">-t, The post text to create, can be written using a subset of markdown.</param>
     /// <param name="languages">-l, The languages represented in the post.</param>
-    /// <param name="instanceUrl">-i, Instance URL.</param>
     /// <param name="verbose">-v, Verbose logging.</param>
     /// <param name="cancellationToken">Cancellation Token.</param>
     /// <returns>Task.</returns>
     [Command("post video")]
-    public async Task CreatePostWithVideoAsync([Argument] string videoPath, string username, string password, string? embedRecord = default, string? embedRecordCid = default, string? alt = default, string[]? vttFiles = default, string[]? vttFileLanaguages = default, string? post = default, string[]? languages = default, string instanceUrl = "https://public.api.bsky.app", bool verbose = false, CancellationToken cancellationToken = default)
+    public async Task CreatePostWithVideoAsync([Argument] string videoPath, string? embedRecord = default, string? embedRecordCid = default, string? alt = default, string[]? vttFiles = default, string[]? vttFileLanaguages = default, string? post = default, string[]? languages = default, bool verbose = false, CancellationToken cancellationToken = default)
     {
         var consoleLog = new ConsoleLog(verbose);
         ATUri? atUri = null;
@@ -90,8 +90,8 @@ public class AppCommands
             return;
         }
 
-        var atProtocol = this.GenerateProtocol(instanceUrl, consoleLog);
-        if (await this.AuthenticateWithAppPasswordAsync(username, password, atProtocol, consoleLog) == false)
+        var atProtocol = await this.AuthenticateFromSessionAsync(consoleLog, cancellationToken);
+        if (atProtocol == null)
         {
             return;
         }
@@ -154,19 +154,16 @@ public class AppCommands
     /// Create a new post with images.
     /// </summary>
     /// <param name="imagePaths">Path to the image(s) to upload.</param>
-    /// <param name="username">-u, Username.</param>
-    /// <param name="password">-p, Password.</param>
     /// <param name="embedRecord">-r, The record to embed in the post.</param>
     /// <param name="embedRecordCid">-c, The CID of the record to embed in the post. Required if embedding record.</param>
     /// <param name="imageAlts">-a, Alt tags for the images.</param>
     /// <param name="post">-t, The post text to create, can be written using a subset of markdown.</param>
     /// <param name="languages">-l, The languages represented in the post.</param>
-    /// <param name="instanceUrl">-i, Instance URL.</param>
     /// <param name="verbose">-v, Verbose logging.</param>
     /// <param name="cancellationToken">Cancellation Token.</param>
     /// <returns>Task.</returns>
     [Command("post image")]
-    public async Task CreatePostWithImagesAsync([Argument] string[] imagePaths, string username, string password, string? embedRecord = default, string? embedRecordCid = default, string[]? imageAlts = default, string? post = default, string[]? languages = default, string instanceUrl = "https://public.api.bsky.app", bool verbose = false, CancellationToken cancellationToken = default)
+    public async Task CreatePostWithImagesAsync([Argument] string[] imagePaths, string? embedRecord = default, string? embedRecordCid = default, string[]? imageAlts = default, string? post = default, string[]? languages = default, bool verbose = false, CancellationToken cancellationToken = default)
     {
         var consoleLog = new ConsoleLog(verbose);
 
@@ -190,8 +187,6 @@ public class AppCommands
             return;
         }
 
-        var atProtocol = this.GenerateProtocol(instanceUrl, consoleLog);
-
         foreach (var imagePath in imagePaths)
         {
             if (File.Exists(imagePath) == false)
@@ -201,7 +196,8 @@ public class AppCommands
             }
         }
 
-        if (await this.AuthenticateWithAppPasswordAsync(username, password, atProtocol, consoleLog) == false)
+        var atProtocol = await this.AuthenticateFromSessionAsync(consoleLog, cancellationToken);
+        if (atProtocol == null)
         {
             return;
         }
@@ -254,18 +250,15 @@ public class AppCommands
     /// Create a new post.
     /// </summary>
     /// <param name="post">The post to create, can be written using a subset of markdown.</param>
-    /// <param name="username">-u, Username.</param>
-    /// <param name="password">-p, Password.</param>
     /// <param name="embedRecord">-r, The record to embed in the post.</param>
     /// <param name="embedRecordCid">-c, The CID of the record to embed in the post. Required if embedding record.</param>
     /// <param name="embeddedUrl">-e, The embedded URL for the post, data pulled from Open Graph. Does not need to be a URL included in the post text.</param>
     /// <param name="languages">-l, The languages represented in the post.</param>
-    /// <param name="instanceUrl">-i, Instance URL.</param>
     /// <param name="verbose">-v, Verbose logging.</param>
     /// <param name="cancellationToken">Cancellation Token.</param>
     /// <returns>Task.</returns>
     [Command("post")]
-    public async Task CreatePostAsync([Argument] string post, string username, string password, string? embedRecord = default, string? embedRecordCid = default, string? embeddedUrl = default, string[]? languages = default, string instanceUrl = "https://public.api.bsky.app", bool verbose = false, CancellationToken cancellationToken = default)
+    public async Task CreatePostAsync([Argument] string post, string? embedRecord = default, string? embedRecordCid = default, string? embeddedUrl = default, string[]? languages = default, bool verbose = false, CancellationToken cancellationToken = default)
     {
         var consoleLog = new ConsoleLog(verbose);
 
@@ -282,9 +275,8 @@ public class AppCommands
             return;
         }
 
-        var atProtocol = this.GenerateProtocol(instanceUrl, consoleLog);
-
-        if (await this.AuthenticateWithAppPasswordAsync(username, password, atProtocol, consoleLog) == false)
+        var atProtocol = await this.AuthenticateFromSessionAsync(consoleLog, cancellationToken);
+        if (atProtocol == null)
         {
             return;
         }
@@ -390,16 +382,13 @@ public class AppCommands
     /// </summary>
     /// <param name="post">The post to create, can be written using a subset of markdown.</param>
     /// <param name="identifiers">-id, Identifier to send to.</param>
-    /// <param name="username">-u, Username.</param>
-    /// <param name="password">-p, Password.</param>
     /// <param name="embedRecord">-r, The record to embed in the post.</param>
     /// <param name="embedRecordCid">-c, The CID of the record to embed in the post. Required if embedding record.</param>
-    /// <param name="instanceUrl">-i, Instance URL.</param>
     /// <param name="verbose">-v, Verbose logging.</param>
     /// <param name="cancellationToken">Cancellation Token.</param>
     /// <returns>Task.</returns>
     [Command("dm")]
-    public async Task CreateDirectMessageAsync([Argument] string post, string[] identifiers, string username, string password, string? embedRecord = default, string? embedRecordCid = default,  string instanceUrl = "https://public.api.bsky.app", bool verbose = false, CancellationToken cancellationToken = default)
+    public async Task CreateDirectMessageAsync([Argument] string post, string[] identifiers, string? embedRecord = default, string? embedRecordCid = default, bool verbose = false, CancellationToken cancellationToken = default)
     {
         var consoleLog = new ConsoleLog(verbose);
 
@@ -416,9 +405,8 @@ public class AppCommands
             return;
         }
 
-        var atProtocol = this.GenerateProtocol(instanceUrl, consoleLog);
-
-        if (await this.AuthenticateWithAppPasswordAsync(username, password, atProtocol, consoleLog) == false)
+        var atProtocol = await this.AuthenticateFromSessionAsync(consoleLog, cancellationToken);
+        if (atProtocol == null)
         {
             return;
         }
@@ -464,14 +452,11 @@ public class AppCommands
     /// Create a new random message.
     /// </summary>
     /// <param name="postTxtFilePath">Path to the text file of posts to pick from.</param>
-    /// <param name="username">-u, Username.</param>
-    /// <param name="password">-p, Password.</param>
-    /// <param name="instanceUrl">-i, Instance URL.</param>
     /// <param name="verbose">-v, Verbose logging.</param>
     /// <param name="cancellationToken">Cancellation Token.</param>
     /// <returns>Task.</returns>
     [Command("random")]
-    public async Task CreateRandomPostAsync([Argument] string postTxtFilePath, string username, string password, string instanceUrl = "https://public.api.bsky.app", bool verbose = false, CancellationToken cancellationToken = default)
+    public async Task CreateRandomPostAsync([Argument] string postTxtFilePath, bool verbose = false, CancellationToken cancellationToken = default)
     {
         var consoleLog = new ConsoleLog(verbose);
 
@@ -483,9 +468,8 @@ public class AppCommands
 
         var posts = File.ReadAllLines(postTxtFilePath);
 
-        var atProtocol = this.GenerateProtocol(instanceUrl, consoleLog);
-
-        if (await this.AuthenticateWithAppPasswordAsync(username, password, atProtocol, consoleLog) == false)
+        var atProtocol = await this.AuthenticateFromSessionAsync(consoleLog, cancellationToken);
+        if (atProtocol == null)
         {
             return;
         }
@@ -916,6 +900,344 @@ public class AppCommands
         }
     }
 
+    /// <summary>
+    /// Subscribe to the network firehose (Jetstream).
+    /// </summary>
+    /// <param name="collections">-c, Collection types to filter (e.g., app.bsky.feed.post). If empty, receives all.</param>
+    /// <param name="jetstreamUrl">-j, Jetstream URL.</param>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    /// <param name="cancellationToken">Cancellation Token.</param>
+    /// <returns>Task.</returns>
+    [Command("firehose")]
+    public async Task SubscribeFirehoseAsync(string[]? collections = default, string jetstreamUrl = "wss://jetstream2.us-east.bsky.network", bool verbose = false, CancellationToken cancellationToken = default)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+
+        if (!Uri.TryCreate(jetstreamUrl, UriKind.Absolute, out var jetstreamUri))
+        {
+            consoleLog.LogError("Invalid Jetstream URL.");
+            return;
+        }
+
+        var builder = new ATJetStreamBuilder()
+            .WithInstanceUrl(jetstreamUri);
+
+        if (consoleLog.IsVerbose)
+        {
+            builder.WithLogger(consoleLog.Logger);
+        }
+
+        if (collections != null && collections.Length > 0)
+        {
+            builder.WithWantedCollections(collections);
+            consoleLog.Log($"Filtering for collections: {string.Join(", ", collections)}");
+        }
+
+        var jetStream = builder.Build();
+
+        jetStream.OnRecordReceived += (sender, args) =>
+        {
+            var record = args.Record;
+            var commit = record.Commit;
+            if (commit?.Record != null)
+            {
+                var timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
+                var collection = commit.Collection ?? "unknown";
+                var operation = commit.Operation.ToString();
+                var did = record.Did?.ToString() ?? "unknown";
+
+                consoleLog.Log($"[{timestamp}] {operation}: {collection} from {did}");
+
+                if (verbose)
+                {
+                    try
+                    {
+                        consoleLog.Log($"  Record: {commit.Record.ToJson()}");
+                    }
+                    catch
+                    {
+                        consoleLog.Log($"  Record: (could not serialize)");
+                    }
+                }
+            }
+        };
+
+        jetStream.OnConnectionUpdated += (sender, args) =>
+        {
+            consoleLog.Log($"Connection status: {args.State}");
+        };
+
+        consoleLog.Log($"Connecting to firehose at {jetstreamUrl}...");
+
+        await jetStream.ConnectAsync(cancellationToken);
+
+        consoleLog.Log("Connected. Press Ctrl+C to stop...");
+
+        // Wait until cancellation is requested
+        try
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            consoleLog.Log("Disconnecting...");
+        }
+
+        await jetStream.CloseAsync();
+        consoleLog.Log("Disconnected.");
+    }
+
+    /// <summary>
+    /// Export all blobs for an account.
+    /// </summary>
+    /// <param name="identifier">The identifier (handle or DID) of the account.</param>
+    /// <param name="outputDir">-o, Output directory for blobs. Defaults to current directory.</param>
+    /// <param name="instanceUrl">-i, Instance URL.</param>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    /// <param name="cancellationToken">Cancellation Token.</param>
+    /// <returns>Task.</returns>
+    [Command("export-blobs")]
+    public async Task ExportBlobsAsync([Argument] string identifier, string? outputDir = default, string instanceUrl = "https://public.api.bsky.app", bool verbose = false, CancellationToken cancellationToken = default)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+        var atProtocol = this.GenerateProtocol(instanceUrl, consoleLog);
+
+        if (!ATDid.TryCreate(identifier, out var atDid))
+        {
+            // Try to resolve as handle first
+            if (ATHandle.TryCreate(identifier, out var atHandle))
+            {
+                (var resolveResult, var resolveError) = await atProtocol.Identity.ResolveHandleAsync(atHandle!, cancellationToken);
+                if (resolveError != null)
+                {
+                    consoleLog.LogError(resolveError.ToString());
+                    return;
+                }
+
+                atDid = resolveResult?.Did;
+            }
+            else
+            {
+                consoleLog.LogError("Invalid identifier.");
+                return;
+            }
+        }
+
+        // Create output directory
+        outputDir ??= $"{identifier}-blobs";
+        if (!Directory.Exists(outputDir))
+        {
+            Directory.CreateDirectory(outputDir);
+        }
+
+        consoleLog.Log($"Fetching blob list for {atDid}...");
+
+        // Get all blobs with pagination
+        var allCids = new List<string>();
+        string? cursor = null;
+
+        do
+        {
+            (var result, var error) = await atProtocol.Sync.ListBlobsAsync(atDid!, cursor: cursor, cancellationToken: cancellationToken);
+            if (error != null)
+            {
+                consoleLog.LogError(error.ToString());
+                return;
+            }
+
+            if (result?.Cids != null)
+            {
+                allCids.AddRange(result.Cids);
+                cursor = result.Cursor;
+            }
+            else
+            {
+                cursor = null;
+            }
+        }
+        while (!string.IsNullOrEmpty(cursor));
+
+        consoleLog.Log($"Found {allCids.Count} blobs.");
+
+        if (allCids.Count == 0)
+        {
+            consoleLog.Log("No blobs to export.");
+            return;
+        }
+
+        // Download each blob
+        var downloaded = 0;
+        var failed = 0;
+
+        foreach (var cid in allCids)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+
+            try
+            {
+                (var blobData, var blobError) = await atProtocol.Sync.GetBlobAsync(atDid!, cid, cancellationToken);
+                if (blobError != null)
+                {
+                    consoleLog.LogError($"Failed to download {cid}: {blobError}");
+                    failed++;
+                    continue;
+                }
+
+                if (blobData != null)
+                {
+                    var outputPath = Path.Combine(outputDir, $"{cid}.bin");
+                    await File.WriteAllBytesAsync(outputPath, blobData, cancellationToken);
+                    downloaded++;
+
+                    if (verbose)
+                    {
+                        consoleLog.Log($"Downloaded: {cid} ({blobData.Length} bytes)");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                consoleLog.LogError($"Error downloading {cid}: {ex.Message}");
+                failed++;
+            }
+        }
+
+        consoleLog.Log($"Export complete. Downloaded: {downloaded}, Failed: {failed}");
+        consoleLog.Log($"Blobs saved to: {Path.GetFullPath(outputDir)}");
+    }
+
+    /// <summary>
+    /// Login and save session for future commands using passwords.
+    /// </summary>
+    /// <param name="username">-u, Username (handle or email).</param>
+    /// <param name="password">-p, Password (app password recommended).</param>
+    /// <param name="instanceUrl">-i, Instance URL.</param>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    /// <param name="cancellationToken">Cancellation Token.</param>
+    /// <returns>Task.</returns>
+    [Command("login password")]
+    public async Task LoginWithPasswordAsync(string username, string password, string instanceUrl = "https://bsky.social", bool verbose = false, CancellationToken cancellationToken = default)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+        var atProtocol = this.GenerateProtocol(instanceUrl, consoleLog);
+
+        if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+        {
+            consoleLog.LogError("Username and password are required.");
+            return;
+        }
+
+        var (result, error) = await atProtocol.AuthenticateWithPasswordResultAsync(username, password);
+        if (error != null || result is null)
+        {
+            consoleLog.LogError($"Failed to authenticate: {error}");
+            return;
+        }
+
+        var sessionData = new SessionData
+        {
+            Did = result.Did?.ToString(),
+            Handle = result.Handle?.ToString(),
+            AccessJwt = result.AccessJwt,
+            RefreshJwt = result.RefreshJwt,
+            InstanceUrl = instanceUrl,
+            DidDoc = result.DidDoc,
+        };
+
+        var configPath = GetSessionFilePath();
+        var configDir = Path.GetDirectoryName(configPath);
+        if (!string.IsNullOrEmpty(configDir) && !Directory.Exists(configDir))
+        {
+            Directory.CreateDirectory(configDir);
+        }
+
+        var json = JsonSerializer.Serialize(sessionData, SessionDataJsonContext.Default.SessionData);
+        await File.WriteAllTextAsync(configPath, json, cancellationToken);
+
+        consoleLog.Log($"Logged in as {result.Handle}.");
+        consoleLog.Log($"Session saved to {configPath}");
+    }
+
+    /// <summary>
+    /// Logout and remove saved session.
+    /// </summary>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    [Command("logout")]
+    public void Logout(bool verbose = false)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+        var configPath = GetSessionFilePath();
+
+        if (File.Exists(configPath))
+        {
+            File.Delete(configPath);
+            consoleLog.Log("Logged out. Session removed.");
+        }
+        else
+        {
+            consoleLog.Log("No active session found.");
+        }
+    }
+
+    /// <summary>
+    /// Show current session status.
+    /// </summary>
+    /// <param name="verbose">-v, Verbose logging.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    [Command("whoami")]
+    public async Task WhoAmIAsync(bool verbose = false)
+    {
+        var consoleLog = new ConsoleLog(verbose);
+        var session = await this.LoadSessionAsync(consoleLog);
+
+        if (session is null)
+        {
+            consoleLog.Log("Not logged in. Use 'bskycli login password' to authenticate.");
+            return;
+        }
+
+        consoleLog.Log($"Handle: {session.Handle}");
+        consoleLog.Log($"DID: {session.Did}");
+        consoleLog.Log($"Instance: {session.InstanceUrl}");
+        consoleLog.Log($"Session file: {GetSessionFilePath()}");
+    }
+
+    private static string GetSessionFilePath()
+    {
+        var configDir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        if (string.IsNullOrEmpty(configDir))
+        {
+            // Fallback for Unix-like systems
+            configDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config");
+        }
+
+        return Path.Combine(configDir, "bskycli", "session.json");
+    }
+
+    private async Task<SessionData?> LoadSessionAsync(ConsoleLog consoleLog)
+    {
+        var configPath = GetSessionFilePath();
+
+        if (!File.Exists(configPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(configPath);
+            return JsonSerializer.Deserialize(json, SessionDataJsonContext.Default.SessionData);
+        }
+        catch (Exception ex)
+        {
+            consoleLog.LogError($"Error loading session: {ex.Message}");
+            return null;
+        }
+    }
+
     private async Task<bool> AuthenticateWithAppPasswordAsync(string username, string password, ATProtocol atProtocol, ConsoleLog consoleLog)
     {
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
@@ -933,6 +1255,83 @@ public class AppCommands
 
         consoleLog.Log($"Authenticated as {username}.");
         return true;
+    }
+
+    private async Task<ATProtocol?> AuthenticateFromSessionAsync(ConsoleLog consoleLog, CancellationToken cancellationToken = default)
+    {
+        var sessionData = await this.LoadSessionAsync(consoleLog);
+        if (sessionData is null)
+        {
+            consoleLog.LogError("Not logged in. Use 'bskycli login' to authenticate first.");
+            return null;
+        }
+
+        if (string.IsNullOrEmpty(sessionData.Did) ||
+            string.IsNullOrEmpty(sessionData.Handle) ||
+            string.IsNullOrEmpty(sessionData.AccessJwt) ||
+            string.IsNullOrEmpty(sessionData.RefreshJwt))
+        {
+            consoleLog.LogError("Session data is incomplete. Please login again with 'bskycli login'.");
+            return null;
+        }
+
+        var instanceUrl = sessionData.InstanceUrl ?? "https://bsky.social";
+        var atProtocol = this.GenerateProtocol(instanceUrl, consoleLog);
+
+        if (sessionData.DidDoc == null)
+        {
+            consoleLog.LogError("Session missing DID document. Please login again with 'bskycli login'.");
+            return null;
+        }
+
+        // Create session and restore authentication
+        var session = new Session(
+            ATDid.Create(sessionData.Did)!,
+            sessionData.DidDoc,
+            ATHandle.Create(sessionData.Handle)!,
+            null, // email
+            sessionData.AccessJwt,
+            sessionData.RefreshJwt,
+            DateTime.UtcNow.AddMinutes(5)); // Will refresh if needed
+
+        var authSession = new AuthSession(session);
+
+        // Restore the session
+        var (restoredSession, restoreError) = await atProtocol.AuthenticateWithPasswordSessionResultAsync(authSession);
+        if (restoreError != null)
+        {
+            consoleLog.LogError($"Failed to restore session. Please login again with 'bskycli login'. Error: {restoreError}");
+            return null;
+        }
+
+        // Refresh the session to ensure tokens are valid
+        var (refreshedSession, refreshError) = await atProtocol.RefreshAuthSessionResultAsync();
+        if (refreshError != null)
+        {
+            consoleLog.LogError($"Session expired or invalid. Please login again with 'bskycli login'. Error: {refreshError}");
+            return null;
+        }
+
+        // Update stored session with new tokens if refresh succeeded
+        if (refreshedSession?.Session != null)
+        {
+            var newSessionData = new SessionData
+            {
+                Did = refreshedSession.Session.Did?.ToString(),
+                Handle = refreshedSession.Session.Handle?.ToString(),
+                AccessJwt = refreshedSession.Session.AccessJwt,
+                RefreshJwt = refreshedSession.Session.RefreshJwt,
+                InstanceUrl = sessionData.InstanceUrl,
+                DidDoc = refreshedSession.Session.DidDoc ?? sessionData.DidDoc, // Preserve existing DidDoc if not updated
+            };
+
+            var configPath = GetSessionFilePath();
+            var json = JsonSerializer.Serialize(newSessionData, SessionDataJsonContext.Default.SessionData);
+            await File.WriteAllTextAsync(configPath, json, cancellationToken);
+        }
+
+        consoleLog.Log($"Authenticated as {sessionData.Handle}.");
+        return atProtocol;
     }
 
     private ATProtocol GenerateProtocol(string instanceUrl, ConsoleLog consoleLog)
